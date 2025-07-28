@@ -1,44 +1,53 @@
-import React, { useState, useRef, useEffect } from 'react'
-import './Weather.css'
-import { FaSearch, FaSun, FaTint, FaWind } from 'react-icons/fa'
+import React, { useState, useRef, useEffect } from 'react';
+import './Weather.css';
+import { FaSearch, FaSun, FaTint, FaWind } from 'react-icons/fa';
 
 const Weather = () => {
-  const [weatherData, setWeatherData] = useState(false)
-  const [city, setCity] = useState('New York')
-  const inputRef = useRef()
+  const [weatherData, setWeatherData] = useState(null);
+  const [city, setCity] = useState('New York');
+  const [error, setError] = useState(null);
+  const inputRef = useRef();
 
   const search = async (cityName) => {
-    if (!cityName) return
+    if (!cityName) return;
     try {
-      const url = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&units=metric&appid=${import.meta.env.VITE_APP_ID}`
-      const response = await fetch(url)
+      const url = `${import.meta.env.VITE_BACKEND_URL}/api/weather?city=${cityName}`;
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error("City not found or invalid API key")
+        throw new Error("City not found or invalid API key");
       }
-      const data = await response.json()
+      const data = await response.json();
+      // Debug: log the full response
+      console.log('Weather API response:', data);
+      if (typeof data.temperature === 'undefined') {
+        setError('Temperature is undefined. Check backend/API response.');
+      } else {
+        setError(null);
+      }
       setWeatherData({
-        humidity: data.main.humidity,
-        windSpeed: data.wind.speed,
-        temprature: Math.floor(data.main.temp),
-        location: data.name,
-      })
+        humidity: data.humidity,
+        windSpeed: data.windSpeed,
+        temperature: data.temperature,
+        location: data.location,
+      });
     } catch (error) {
-      setWeatherData(false)
-      console.error('Error fetching weather data:', error)
+      setWeatherData(null);
+      setError(error.message);
+      console.error('Error fetching weather data:', error.message);
     }
-  }
+  };
 
   useEffect(() => {
-    search(city)
-  }, [])
+    search(city);
+  }, []);
 
-  const handleInputChange = (e) => setCity(e.target.value)
+  const handleInputChange = (e) => setCity(e.target.value);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      search(city)
+      search(city);
     }
-  }
+  };
 
   return (
     <div className='weather'>
@@ -55,8 +64,13 @@ const Weather = () => {
       </div>
       <FaSun className='clear-icon' />
       <p className='temperature'>
-        {weatherData ? `${weatherData.temprature}°C` : '--'}
+        {weatherData && typeof weatherData.temperature !== 'undefined' ? `${weatherData.temperature}°C` : '--'}
       </p>
+      {error && (
+        <div style={{ color: 'red', marginBottom: '10px' }}>
+          {error}
+        </div>
+      )}
       <p className='location'>
         {weatherData ? weatherData.location : '--'}
       </p>
@@ -77,7 +91,7 @@ const Weather = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Weather
+export default Weather;
