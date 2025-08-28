@@ -10,30 +10,47 @@ const Weather = () => {
 
   const search = async (cityName) => {
     if (!cityName) return;
+    setError(null);
+  
     try {
-      const url = `${import.meta.env.VITE_BACKEND_URL}/api/weather?city=${cityName}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("City not found or invalid API key");
+      const apiKey = import.meta.env.VITE_OPENWEATHER_KEY;
+      if (!apiKey) {
+        throw new Error("Missing VITE_OPENWEATHER_KEY in .env");
       }
-      const data = await response.json();
-      // Debug: log the full response
-      console.log('Weather API response:', data);
-      if (typeof data.temperature === 'undefined') {
-        setError('Temperature is undefined. Check backend/API response.');
-      } else {
-        setError(null);
-      }
+  
+      // 1) Geocode city to get lat/lon
+      const geoRes = await fetch(
+        `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${apiKey}`
+      );
+      if (!geoRes.ok) throw new Error("Geocoding failed");
+      const geo = await geoRes.json();
+      if (!geo || !geo.length) throw new Error("City not found");
+      const { lat, lon } = geo[0];
+  
+      // 3) Current Weather call
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+const response = await fetch(url);
+if (!response.ok) {
+  const text = await response.text();
+  throw new Error(`Current weather request failed: ${response.status} ${text}`);
+}
+const data = await response.json();
+      // Using current weather response shape
+  
+      // Map into the keys used by the UI
       setWeatherData({
-        humidity: data.humidity,
-        windSpeed: data.windSpeed,
-        temperature: data.temperature,
-        location: data.location,
+        location: cityName,
+        temperature: data?.main?.temp,
+        humidity: data?.main?.humidity,
+        // Convert m/s to Km/hr if present
+        windSpeed: data?.wind?.speed ? Math.round(data.wind.speed * 3.6) : undefined,
+        weather: data?.weather?.[0]?.main || "N/A",
+        icon: data?.weather?.[0]?.icon || null,
+        raw: data,
       });
-    } catch (error) {
+    } catch (err) {
+      setError(err.message || "Failed to fetch weather");
       setWeatherData(null);
-      setError(error.message);
-      console.error('Error fetching weather data:', error.message);
     }
   };
 
